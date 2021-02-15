@@ -79,6 +79,18 @@ class Grid {
         }
     }
 
+    // Returns the distance between two nodes on the grid.
+    distanceBetween(node: Node, otherNode: Node) {
+        let xDiff = Math.abs(node.x - otherNode.x);
+        let yDiff = Math.abs(node.y - otherNode.y);
+
+        if (xDiff === 0 || yDiff === 0) {
+            return Math.max(xDiff, yDiff) ** 2;
+        } else {
+            return xDiff ** 2 + yDiff ** 2;
+        }
+    }
+
     // Given x, y coordinates return wether or not the node would be in bounds of the
     // state grid.
     isInBounds(x: number, y: number): boolean {
@@ -106,8 +118,14 @@ function getNeighbours(grid: Grid, currNode: Node) {
     let neighbours: Node[] = [];
 
     // check in bounds for each neighbour (only add valid / in bound ones).
+    // check that they are not an obstacle or processed.
 
     return neighbours;
+}
+
+// Adds a new entry into the state history of the A* steps
+function addNewStateEntry(stateHistory: Node[][], newState: Node[]) {
+    stateHistory.push(Lodash.cloneDeep(newState));
 }
 
 // Generates the steps to present to generate the A* algorithm steps
@@ -125,18 +143,45 @@ async function getAStarSteps(grid: Grid, source: Node, target: Node): Promise<No
     }
 
     // Create a empty steps list (list of grid states).
-    let stateHistory: Node[][] = [Lodash.cloneDeep(grid.state)];
+    let stateHistory: Node[][] = [];
+    addNewStateEntry(stateHistory, grid.state);
 
+    let minNode = getMinimumNode(grid.state);
     // start main loop
+    while (minNode !== null || minNode !== target) {
+        if (minNode) {
+            // mark min node as processed + add a step to the steps
+            minNode.state = nodeState.processed;
+            addNewStateEntry(stateHistory, grid.state);
 
-    // --get min node
+            // check all neighbours for shorter paths for them.
+            let neighbours = await getNeighbours(grid, minNode);
 
-    // --mark min node as processed + add a step to the steps
+            // Update their distance based on knwon_distance_from_start + distance_from_end (A*).
+            // + add step to the steps for each neighbour changed / visited.
+            for (let i = 0; i < neighbours.length; i++) {
+                let currNeighbour = neighbours[i];
 
-    // --check all neighbours for shorter paths for them. + add step to the steps for each neighbour changed / visited.
-    // -- --Update their distance based on knwon_distance_from_start + distance_from_end (A*).
+                // change node state to seen if unknown.
+                if (currNeighbour.state === nodeState.unknown) currNeighbour.state = nodeState.seen;
 
-    // generate the final path + step for each path node.
+                // check distance vector
+                let nodes_distance = grid.distanceBetween(minNode, currNeighbour);
+                if (currNeighbour.knownDistance > minNode.knownDistance + nodes_distance) {
+                    // update current neighbour.
+                    currNeighbour.knownDistance = nodes_distance;
+                    currNeighbour.parent = minNode;
+                }
+
+                // add step to history.
+                addNewStateEntry(stateHistory, grid.state);
+            }
+
+            // generate the final path + step for each path node.
+
+            // get min node again
+        }
+    }
 
     return stateHistory;
 }
