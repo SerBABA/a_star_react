@@ -5,21 +5,28 @@ import React from "react";
 const Lodash = require("lodash");
 
 // Differnt states the node can be in.
-enum nodeState {
-    processed,
-    unknown,
-    seen,
-    obstacle,
-    path,
+export enum nodeState {
+    processed = "processed",
+    unknown = "unknown",
+    seen = "seen",
+    obstacle = "obstacle",
+    path = "path",
 }
 
+// coordinates type
+type coords = {
+    x: number;
+    y: number;
+};
+
 // Used to store data about each node.
-class Node {
+export class NodeClass {
     x: number;
     y: number;
     state: nodeState;
     knownDistance: number;
-    parent: Node | null;
+    endDistance: number | null;
+    parent: NodeClass | null;
 
     constructor(x: number, y: number) {
         // Position on grid
@@ -29,15 +36,16 @@ class Node {
         // Defaults for tracking
         this.state = nodeState.unknown;
         this.knownDistance = Number.POSITIVE_INFINITY;
+        this.endDistance = null;
         this.parent = null;
     }
 }
 
 // Stores the data about a grid.
-class Grid {
+export class GridClass {
     xSize: number;
     ySize: number;
-    state: Node[];
+    state: NodeClass[];
 
     constructor(xSize: number, ySize: number) {
         this.xSize = xSize;
@@ -47,12 +55,12 @@ class Grid {
     }
 
     // Create and populates a default state to return. This contains all the nodes.
-    createDefaultState(): Node[] {
+    createDefaultState(): NodeClass[] {
         let state = [];
 
-        for (let x = 0; x < this.xSize; x++) {
-            for (let y = 0; y < this.ySize; y++) {
-                state.push(new Node(x, y));
+        for (let y = 0; y < this.ySize; y++) {
+            for (let x = 0; x < this.xSize; x++) {
+                state.push(new NodeClass(x, y));
             }
         }
 
@@ -60,7 +68,8 @@ class Grid {
     }
 
     // Resetting the grid elements to unknown when they are not unknown or an obstacle.
-    resetGridState(): void {
+    // Returns this original state of the grid
+    resetGridState(): NodeClass[] {
         for (let i = 0; i < this.state.length; i++) {
             if (
                 this.state[i].state !== nodeState.unknown ||
@@ -68,10 +77,11 @@ class Grid {
             )
                 this.state[i].state = nodeState.unknown;
         }
+        return this.state;
     }
 
     // Get the Node that resides at the x, y coordinates
-    getNode(x: number, y: number): Node | null {
+    getNode(x: number, y: number): NodeClass | null {
         if (this.isInBounds(x, y)) {
             return this.state[x + y * this.xSize];
         } else {
@@ -80,7 +90,7 @@ class Grid {
     }
 
     // Returns the distance between two nodes on the grid.
-    distanceBetween(node: Node, otherNode: Node) {
+    distanceBetween(node: NodeClass, otherNode: NodeClass) {
         let xDiff = Math.abs(node.x - otherNode.x);
         let yDiff = Math.abs(node.y - otherNode.y);
 
@@ -99,14 +109,26 @@ class Grid {
 }
 
 // Gets the minimum node
-function getMinimumNode(nodes: Node[]) {
-    let minNode: Node | null = null;
+function getMinimumNode(nodes: NodeClass[]) {
+    let minNode: NodeClass | null = null;
     let minDistance: number = Number.POSITIVE_INFINITY;
 
     for (let i = 0; i < nodes.length; i++) {
-        if (nodes[i].knownDistance < minDistance && nodes[i].state === nodeState.seen) {
-            minNode = nodes[i];
-            minDistance = nodes[i].knownDistance;
+        let node = nodes[i];
+
+        if (node.endDistance) {
+            if (
+                node.knownDistance + node.endDistance < minDistance &&
+                node.state === nodeState.seen
+            ) {
+                minNode = node;
+                minDistance = node.knownDistance + node.endDistance;
+            }
+        } else {
+            if (nodes[i].knownDistance < minDistance && node.state === nodeState.seen) {
+                minNode = node;
+                minDistance = node.knownDistance;
+            }
         }
     }
 
@@ -114,22 +136,49 @@ function getMinimumNode(nodes: Node[]) {
 }
 
 // iterates over the neighbours of the current node and returns them (within bounds of the grid).
-function getNeighbours(grid: Grid, currNode: Node) {
-    let neighbours: Node[] = [];
+function getNeighbours(grid: GridClass, currNode: NodeClass) {
+    let neighbours: NodeClass[] = [];
 
-    // check in bounds for each neighbour (only add valid / in bound ones).
-    // check that they are not an obstacle or processed.
+    // neighbour coords depending on the current node coordinates.
+    const neighboursCoords: coords[] = [
+        { x: currNode.x + 1, y: currNode.y + 1 },
+        { x: currNode.x, y: currNode.y + 1 },
+        { x: currNode.x - 1, y: currNode.y + 1 },
+        //
+        { x: currNode.x + 1, y: currNode.y },
+        { x: currNode.x - 1, y: currNode.y },
+        //
+        { x: currNode.x + 1, y: currNode.y - 1 },
+        { x: currNode.x, y: currNode.y - 1 },
+        { x: currNode.x - 1, y: currNode.y - 1 },
+    ];
+
+    for (let i = 0; i < neighboursCoords.length; i++) {
+        let coord = neighboursCoords[i];
+        let node = grid.getNode(coord.x, coord.y);
+
+        // if the node is returned it is in bounds
+        if (node) {
+            // check that they are not an obstacle or processed.
+            if (node.state !== nodeState.obstacle && node.state !== nodeState.processed)
+                neighbours.push(node);
+        }
+    }
 
     return neighbours;
 }
 
 // Adds a new entry into the state history of the A* steps
-function addNewStateEntry(stateHistory: Node[][], newState: Node[]) {
+function addNewStateEntry(stateHistory: NodeClass[][], newState: NodeClass[]) {
     stateHistory.push(Lodash.cloneDeep(newState));
 }
 
 // Generates the steps to present to generate the A* algorithm steps
-async function getAStarSteps(grid: Grid, source: Node, target: Node): Promise<Node[][]> {
+export async function getAStarSteps(
+    grid: GridClass,
+    source: NodeClass,
+    target: NodeClass
+): Promise<NodeClass[][]> {
     // ensure we have a consistent start state if it is re-run
     await grid.resetGridState();
 
@@ -143,43 +192,73 @@ async function getAStarSteps(grid: Grid, source: Node, target: Node): Promise<No
     }
 
     // Create a empty steps list (list of grid states).
-    let stateHistory: Node[][] = [];
+    let stateHistory: NodeClass[][] = [];
     addNewStateEntry(stateHistory, grid.state);
 
     let minNode = getMinimumNode(grid.state);
     // start main loop
-    while (minNode !== null || minNode !== target) {
-        if (minNode) {
-            // mark min node as processed + add a step to the steps
-            minNode.state = nodeState.processed;
-            addNewStateEntry(stateHistory, grid.state);
+    while (minNode) {
+        // mark min node as processed + add a step to the steps
+        minNode.state = await nodeState.processed;
+        addNewStateEntry(stateHistory, grid.state);
 
-            // check all neighbours for shorter paths for them.
-            let neighbours = await getNeighbours(grid, minNode);
+        // check all neighbours for shorter paths for them.
+        let neighbours = await getNeighbours(grid, minNode);
+        console.log({ node: minNode, neighbours: neighbours });
 
-            // Update their distance based on knwon_distance_from_start + distance_from_end (A*).
-            // + add step to the steps for each neighbour changed / visited.
-            for (let i = 0; i < neighbours.length; i++) {
-                let currNeighbour = neighbours[i];
+        // Update their distance based on knwon_distance_from_start + distance_from_end (A*).
+        // + add step to the steps for each neighbour changed / visited.
+        for (let i = 0; i < neighbours.length; i++) {
+            let currNeighbour = neighbours[i];
 
-                // change node state to seen if unknown.
-                if (currNeighbour.state === nodeState.unknown) currNeighbour.state = nodeState.seen;
+            // change node state to seen if unknown.
+            if (currNeighbour.state === nodeState.unknown) currNeighbour.state = nodeState.seen;
 
-                // check distance vector
-                let nodes_distance = grid.distanceBetween(minNode, currNeighbour);
-                if (currNeighbour.knownDistance > minNode.knownDistance + nodes_distance) {
-                    // update current neighbour.
-                    currNeighbour.knownDistance = nodes_distance;
-                    currNeighbour.parent = minNode;
-                }
+            // The distance between the minimum node and the current neighbour
+            let neighbourDistance = grid.distanceBetween(minNode, currNeighbour);
 
-                // add step to history.
-                addNewStateEntry(stateHistory, grid.state);
+            // ensures there is a end distance already calculated
+            if (!currNeighbour.endDistance)
+                currNeighbour.endDistance = grid.distanceBetween(target, currNeighbour);
+
+            // This is the check for the distance
+            if (
+                currNeighbour.knownDistance >
+                minNode.knownDistance + neighbourDistance + currNeighbour.endDistance
+            ) {
+                // update current neighbour.
+                currNeighbour.knownDistance = minNode.knownDistance + neighbourDistance;
+                currNeighbour.parent = minNode;
+                // testing
+            }
+            // add step to history.
+            await addNewStateEntry(stateHistory, grid.state);
+        }
+
+        // Get new minimum node
+        if (minNode.x !== target.x || minNode.y !== target.y) {
+            minNode = await getMinimumNode(grid.state);
+        } else {
+            break;
+        }
+    }
+
+    // generate the final path + step for each path node.
+    if (minNode) {
+        let currNode: NodeClass | null = target;
+        let nextNode: NodeClass | null = target.parent;
+
+        while (nextNode !== currNode) {
+            // trace back... and add states to the history!
+            if (currNode) {
+                currNode.state = nodeState.path;
             }
 
-            // generate the final path + step for each path node.
-
-            // get min node again
+            currNode = nextNode;
+            if (nextNode) {
+                nextNode = nextNode.parent;
+            }
+            addNewStateEntry(stateHistory, grid.state);
         }
     }
 
