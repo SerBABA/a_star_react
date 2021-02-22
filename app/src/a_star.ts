@@ -175,14 +175,21 @@ function addNewStateEntry(stateHistory: NodeClass[][], newState: NodeClass[]) {
   stateHistory.push(Lodash.cloneDeep(newState));
 }
 
+type promiseAstarSteps = {
+  steps: NodeClass[][];
+  result: boolean;
+};
+
 // Generates the steps to present to generate the A* algorithm steps
 export async function getAStarSteps(
   grid: GridClass,
   source: NodeClass,
   target: NodeClass
-): Promise<NodeClass[][]> {
+): Promise<promiseAstarSteps> {
   // ensure we have a consistent start state if it is re-run
   await grid.resetGridState();
+  // determines if we have found a path from the target to the start (default yes)
+  let foundPath = true;
 
   // initialize the source node.
   let sourceNode = grid.getNode(source.x, source.y);
@@ -261,7 +268,9 @@ export async function getAStarSteps(
       }
       addNewStateEntry(stateHistory, grid.state);
     }
+  } else {
+    foundPath = false;
   }
 
-  return stateHistory;
+  return { steps: stateHistory, result: foundPath };
 }

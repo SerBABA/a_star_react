@@ -1,16 +1,16 @@
 import React, { useState } from "react";
-import { NodeClass, getAStarSteps, GridClass, nodeState } from "./a_star";
+import { NodeClass, getAStarSteps, GridClass, nodeState, Coords } from "./a_star";
 import "./App.css";
 
 const A_STAR_UPDATE_MS_DELAY = 45;
-const X_SIZE = 8;
-const Y_SIZE = 8;
+const X_SIZE = 5;
+const Y_SIZE = 4;
 
 enum changeEnum {
+  none = "none",
   target = "target",
   source = "source",
   obstacle = "obstacle",
-  none = "none",
 }
 
 function App() {
@@ -23,71 +23,93 @@ function App() {
 
   // Stores the actual coordiantes. unable to force the type sadly :(
   const [sourceCoords, setSourceCoords] = useState({ x: 2, y: 3 });
-  const [targetCoords, setTargetCoords] = useState({ x: 7, y: 2 });
+  const [targetCoords, setTargetCoords] = useState({ x: 3, y: 2 });
 
   // Stores the source and target nodes
   const sourceNode = grid.getNode(sourceCoords.x, sourceCoords.y);
   const targetNode = grid.getNode(targetCoords.x, targetCoords.y);
 
-  // Similar to a radio button
+  // Used to keep track of the user's decision of what action to perfrom on click of the grid!
   const [selectionType, setSelectionType] = useState(changeEnum.none);
-
-  // Accessing grid?
-  const getGrid = (): GridClass => {
-    return grid;
-  };
 
   // Handles the change of the target node.
   const handleChangeEnumAssignment = (x: number, y: number) => {
+    // Can't change source, target and obstacles while the A* is running.
     if (running) return;
 
-    switch (selectionType) {
-      case changeEnum.target:
-        setTargetCoords({ x, y });
-        break;
+    let node = grid.getNode(x, y);
 
-      case changeEnum.source:
-        setSourceCoords({ x, y });
-        break;
+    // This ensures the coordinates given for the node actually exist within the grid and we can modify it's parameters
+    if (node) {
+      switch (selectionType) {
+        case changeEnum.target:
+          // Prevents assignments of target if it has been assigned to obstacle already!
+          if (node.state === nodeState.obstacle) return;
 
-      case changeEnum.obstacle:
-        let node = grid.getNode(x, y);
-        let newValue = nodeState.obstacle;
-        if (node) {
-          // the new value
+          setTargetCoords({ x, y });
+          break;
+
+        case changeEnum.source:
+          // Prevents assignments of source if it has been assigned to obstacle already!
+          if (node.state === nodeState.obstacle) return;
+
+          setSourceCoords({ x, y });
+          break;
+
+        case changeEnum.obstacle:
+          // Prevents assignment of source and target nodes to an obstacle
+          if (sourceCoords.x === x && sourceCoords.y === y) return;
+          if (targetCoords.x === x && targetCoords.y === y) return;
+
+          // This implementes the toggle between Unknown state and the obstacle state when assigning an obstacke.
+          let newValue = nodeState.obstacle;
           if (node.state === nodeState.obstacle) {
             newValue = nodeState.unknown;
           }
 
-          // Update the visual
+          // Update the visual aspect
           var gridStateCopy = gridState.slice();
-          gridStateCopy[getGrid().getIndex(x, y)].state = newValue;
+          gridStateCopy[grid.getIndex(x, y)].state = newValue;
           setGridState(gridStateCopy);
 
-          // Update the grid state ++ add safety for non real nodes
+          // Update the grid state
           node.state = newValue;
           setGrid(grid);
-        }
-        break;
 
-      default:
-        alert("Select an assignment please!");
+          break;
+
+        default:
+          alert("Select an assignment please!");
+      }
     }
   };
 
   // This runs the software to create the history states.
   const handleRunClick = (sourceNode: NodeClass, targetNode: NodeClass) => {
+    // Perfroms the calculations!
     getAStarSteps(grid, sourceNode, targetNode)
-      .then((stateHistory) => {
+      .then((response) => {
+        // Prevents the grid from being changed while displaying the visualization!
         setRunning(true);
-        for (let i = 0; i < stateHistory.length; i++) {
+
+        // displays the steps of the algorithms with a constant delay
+        for (let i = 0; i < response.steps.length + 1; i++) {
           setTimeout(() => {
-            setGridState(stateHistory[i]);
-            if (i + 1 >= stateHistory.length) setRunning(false);
+            // If it is the final step it provides access the actions
+            // and displaying whether the algorithm found a path or not!
+            if (response.steps.length <= i) {
+              setRunning(false);
+              if (!response.result) alert("Couldn't find a path from the source to the target!");
+            } else {
+              // Updates the grid
+              setGridState(response.steps[i]);
+            }
           }, A_STAR_UPDATE_MS_DELAY * i);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        alert("Something went wrong during the action of getting the steps of the algorithm!");
+      });
   };
 
   // Resets the grid to its original state.
@@ -105,6 +127,8 @@ function App() {
           xSize={grid.xSize}
           ySize={grid.ySize}
           handleChange={handleChangeEnumAssignment}
+          source={sourceCoords}
+          target={targetCoords}
         ></Grid>
         <button onClick={() => handleRunClick(sourceNode, targetNode)} disabled={running}>
           run!
@@ -157,7 +181,14 @@ type gridProps = {
   xSize: number;
   ySize: number;
   handleChange: (x: number, y: number) => void;
+  source: Coords;
+  target: Coords;
 };
+enum gridNodeType {
+  normal = "normal",
+  target = "target",
+  source = "source",
+}
 function Grid(props: gridProps) {
   return (
     <div
@@ -168,7 +199,21 @@ function Grid(props: gridProps) {
       }}
     >
       {props.grid.map((node, index) => {
-        return <Slot data={node} key={index} item={index} handleChange={props.handleChange} />;
+        let gridNodeTypeForNode = gridNodeType.normal;
+        if (node.x === props.source.x && node.y === props.source.y) {
+          gridNodeTypeForNode = gridNodeType.source;
+        } else if (node.x === props.target.x && node.y === props.target.y) {
+          gridNodeTypeForNode = gridNodeType.target;
+        }
+        return (
+          <Slot
+            data={node}
+            key={index}
+            index={index}
+            handleChange={props.handleChange}
+            gridNodeType={gridNodeTypeForNode}
+          />
+        );
       })}
     </div>
   );
@@ -177,19 +222,20 @@ function Grid(props: gridProps) {
 // Slot represents a node on a grid.
 type slotProps = {
   data: NodeClass;
-  item: number;
+  index: number;
   handleChange: (x: number, y: number) => void;
+  gridNodeType: gridNodeType;
 };
 function Slot(props: slotProps) {
   const data = props.data;
 
   return (
     <div
-      className={`square-slot state-${data.state}`}
+      className={`square-slot state-${data.state} ${props.gridNodeType}-type`}
       onClick={() => props.handleChange(data.x, data.y)}
     >
       <h6>
-        {data.x}, {data.y}, index: ({props.item})
+        {data.x}, {data.y}, index: ({props.index})
       </h6>
       <p>
         {data.knownDistance} + {data.endDistance || "Unknown"}
