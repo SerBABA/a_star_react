@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { NodeClass, getAStarSteps, GridClass, nodeState, Coords } from "./a_star";
+import { NodeClass, getAStarSteps, GridClass, nodeState, Coords } from "../../services/a_star";
 import "./App.css";
 
 const A_STAR_UPDATE_MS_DELAY = 45;
-const X_SIZE = 5;
-const Y_SIZE = 4;
+const X_SIZE = 10;
+const Y_SIZE = 5;
 
 enum changeEnum {
   none = "none",

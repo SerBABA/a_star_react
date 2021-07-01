@@ -1,8 +1,7 @@
 import { AssertionError } from "assert";
-import React from "react";
 
 // for deep copying the states
-const Lodash = require("lodash");
+import Lodash from "lodash";
 
 // Differnt states the node can be in.
 export enum nodeState {
