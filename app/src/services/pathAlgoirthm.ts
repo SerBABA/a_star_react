@@ -3,7 +3,7 @@ export enum ElementStatus {
   SEEN = "seen",
   PROCESSED = "processed",
   OBSTACLE = "obstacle",
-  PATH = "PATH",
+  PATH = "path",
 }
 
 export abstract class PathAlgorithm {
@@ -42,13 +42,17 @@ export abstract class PathAlgorithm {
    *
    * @return the different states of the algorithm in a list of states
    */
-  public abstract runAlgorithm(): Promise<ElementStatus[][]>;
+  public abstract runAlgorithm(): Promise<{
+    states: (readonly ElementStatus[])[];
+    success: boolean;
+  }>;
 
   /**
    * Resets all the grid values to UNKNOWN type.
    */
   public async resetGrid(): Promise<void> {
     this._grid = Array(this._xSize * this._ySize).fill(ElementStatus.UNKNOWN);
+    this._grid[this._start] = ElementStatus.SEEN;
   }
 
   /**
@@ -78,7 +82,7 @@ export abstract class PathAlgorithm {
    * @returns {Promise<number[]>} All valid neighbour indexs of a given index.
    */
   public async getNeighbours(index: number): Promise<number[]> {
-    let neighbours = [index - this._xSize, index + this._xSize];
+    let neighbours: number[] = [index - this._xSize, index + this._xSize];
 
     // Only add the neighbours to the right if we are not on the most right column
     if (index % this._xSize < this._xSize - 1) {
@@ -91,7 +95,16 @@ export abstract class PathAlgorithm {
     }
 
     // Filter any neighbours that are out of the y-axis bounds
-    return neighbours.filter((val) => val >= 0 && val <= this._xSize * this._ySize);
+    neighbours.filter((val) => val >= 0 && val <= this._xSize * this._ySize);
+
+    // All new neighbours get updated
+    for (let i of neighbours) {
+      if ((await this.getGridElement(i)) === ElementStatus.UNKNOWN) {
+        this.setGridElement(ElementStatus.SEEN, i);
+      }
+    }
+
+    return neighbours.filter(async (i) => (await this.getGridElement(i)) === ElementStatus.SEEN);
   }
 
   /**
@@ -121,5 +134,9 @@ export abstract class PathAlgorithm {
 
   public getTarget() {
     return this._target;
+  }
+
+  public getGrid() {
+    return Object.freeze(this._grid.slice());
   }
 }
