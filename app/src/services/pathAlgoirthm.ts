@@ -139,4 +139,9 @@ export abstract class PathAlgorithm {
   public getGrid() {
     return Object.freeze(this._grid.slice());
   }
+
+  public setGridSize(x: number, y: number) {
+    this._xSize = x;
+    this._ySize = y;
+  }
 }
