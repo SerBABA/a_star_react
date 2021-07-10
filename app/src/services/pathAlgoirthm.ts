@@ -1,6 +1,7 @@
 export enum ElementStatus {
   UNKNOWN = "unknown",
   SEEN = "seen",
+  PROCESSING = "processing",
   PROCESSED = "processed",
   OBSTACLE = "obstacle",
   PATH = "path",
@@ -86,16 +87,16 @@ export abstract class PathAlgorithm {
 
     // Only add the neighbours to the right if we are not on the most right column
     if (index % this._xSize < this._xSize - 1) {
-      neighbours.concat([index + this._xSize + 1, index + 1, index - this._xSize + 1]);
+      neighbours = neighbours.concat([index + this._xSize + 1, index + 1, index - this._xSize + 1]);
     }
 
     // Only add the neighbours to the left if we are not on the most left column
     if (index % this._xSize > 0) {
-      neighbours.concat([index - this._xSize - 1, index - 1, index + this._xSize - 1]);
+      neighbours = neighbours.concat([index - this._xSize - 1, index - 1, index + this._xSize - 1]);
     }
 
     // Filter any neighbours that are out of the y-axis bounds
-    neighbours.filter((val) => val >= 0 && val <= this._xSize * this._ySize);
+    neighbours = neighbours.filter((val) => val >= 0 && val <= this._xSize * this._ySize);
 
     // All new neighbours get updated
     for (let i of neighbours) {
@@ -104,7 +105,10 @@ export abstract class PathAlgorithm {
       }
     }
 
-    return neighbours.filter(async (i) => (await this.getGridElement(i)) === ElementStatus.SEEN);
+    const res = neighbours.filter(
+      async (i) => (await this.getGridElement(i)) === ElementStatus.SEEN
+    );
+    return res;
   }
 
   /**
@@ -143,5 +147,13 @@ export abstract class PathAlgorithm {
   public setGridSize(x: number, y: number) {
     this._xSize = x;
     this._ySize = y;
+  }
+
+  public setTarget(index: number) {
+    this._target = index;
+  }
+
+  public setStart(index: number) {
+    this._start = index;
   }
 }

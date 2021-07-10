@@ -12,7 +12,9 @@ export class AStarService extends PathAlgorithm {
   /**
    * Contains the (global) distances for each element from the target element.
    */
-  private _distancesEnd: number[] = Array(this.getXSize() * this.getYSize()).fill(Number.NaN);
+  private _distancesEnd: number[] = Array(this.getXSize() * this.getYSize()).fill(
+    Number.POSITIVE_INFINITY
+  );
 
   /**
    * Contains all the distances from the start element (known).
@@ -29,7 +31,7 @@ export class AStarService extends PathAlgorithm {
   public async initAlgorithm(): Promise<void> {
     this._states = [];
     this.resetGrid();
-    this._distancesEnd = Array(this.getXSize() * this.getYSize()).fill(Number.NaN);
+    this._distancesEnd = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
     this._distancesStart = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
     this._parents = Array(this.getXSize() * this.getYSize()).fill(Number.NaN);
 
@@ -44,7 +46,7 @@ export class AStarService extends PathAlgorithm {
    */
   public async getElementEndDistance(index: number): Promise<number> {
     // If the value is not set we lazily load it
-    if (this._distancesEnd[index] === Number.NaN) {
+    if (this._distancesEnd[index] === Number.POSITIVE_INFINITY) {
       this._distancesEnd[index] = await this.getDistanceBetweenElements(index, this.getTarget());
     }
 
@@ -64,6 +66,7 @@ export class AStarService extends PathAlgorithm {
       let currentDistance = (await this.getElementEndDistance(i)) + this._distancesStart[i];
       if (currentDistance < minDistance && this.getGrid()[i] === ElementStatus.SEEN) {
         minDistance = currentDistance;
+        minIndex = i;
       }
     }
 
@@ -81,7 +84,9 @@ export class AStarService extends PathAlgorithm {
 
     let minElement = await this.getMinimumElement();
 
-    while (minElement) {
+    while (minElement !== null) {
+      this.setGridElement(ElementStatus.PROCESSING, minElement);
+      this._states.push(this.getGrid());
       for (let neighbourIndex of await this.getNeighbours(minElement)) {
         let neighbourDistance: number = await this.getDistanceBetweenElements(
           minElement,
@@ -109,13 +114,14 @@ export class AStarService extends PathAlgorithm {
         this._states.push(this.getGrid());
       }
       this.setGridElement(ElementStatus.PROCESSED, minElement);
+      this._states.push(this.getGrid());
 
       // If we reached the target we stop the loop
       if (minElement === this.getTarget()) break;
       minElement = await this.getMinimumElement();
     }
 
-    if (minElement) {
+    if (minElement !== null) {
       let currElement = this.getTarget();
       let nextElement = this._parents[this.getTarget()];
 
@@ -125,6 +131,9 @@ export class AStarService extends PathAlgorithm {
         if (nextElement) nextElement = this._parents[nextElement];
         this._states.push(this.getGrid());
       }
+
+      this.setGridElement(ElementStatus.PATH, currElement);
+      this._states.push(this.getGrid());
     } else {
       success = false;
     }
