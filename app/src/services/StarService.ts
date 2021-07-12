@@ -78,7 +78,6 @@ export class AStarService extends PathAlgorithm {
     success: boolean;
   }> {
     // Reseting...
-    await this.initAlgorithm();
     let success: boolean = true;
     this._states.push(this.getGrid());
 

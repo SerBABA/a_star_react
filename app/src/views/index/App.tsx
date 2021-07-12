@@ -11,16 +11,20 @@ const Y_SIZE = 5;
 const aStarService: PathAlgorithm = new AStarService();
 
 const useControlPanel = () => {
-  const [action, setAction] = useState(SetActionEnum.target);
+  const [action, setAction] = useState("target");
 
-  const updateAction = (choice: SetActionEnum) => {
+  const updateAction = (choice: string) => {
     setAction(choice);
   };
 
-  const handleClick = (index: number) => {
+  const handleClick = async (index: number) => {
     switch (action) {
       case SetActionEnum.obstacle:
-        aStarService.setGridElement(ElementStatus.OBSTACLE, index);
+        if ((await aStarService.getGridElement(index)) !== ElementStatus.OBSTACLE) {
+          aStarService.setGridElement(ElementStatus.OBSTACLE, index);
+        } else {
+          aStarService.setGridElement(ElementStatus.UNKNOWN, index);
+        }
         break;
       case SetActionEnum.start:
         aStarService.setStart(index);
@@ -40,6 +44,11 @@ export default function App() {
   aStarService.setGridSize(X_SIZE, Y_SIZE);
   const [grid, setGrid] = useState(aStarService.getGrid());
   const { action, handleClick, updateAction } = useControlPanel();
+
+  const handleNodeClick = async (index: number) => {
+    await handleClick(index);
+    setGrid(aStarService.getGrid());
+  };
 
   const handleRun = async (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
     event.preventDefault();
@@ -63,8 +72,9 @@ export default function App() {
   return (
     <PageWrapper>
       <GridWrapper>
-        <Grid xSize={X_SIZE} ySize={Y_SIZE} grid={grid} handleNodeClick={handleClick} />
+        <Grid xSize={X_SIZE} ySize={Y_SIZE} grid={grid} handleNodeClick={handleNodeClick} />
       </GridWrapper>
+      <Controls value={action} setValue={updateAction} />
       <Button onClick={(e) => handleRun(e)}>RUN</Button>
     </PageWrapper>
   );
