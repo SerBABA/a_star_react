@@ -42,12 +42,12 @@ const useControlPanel = () => {
 
 export default function App() {
   aStarService.setGridSize(X_SIZE, Y_SIZE);
-  const [grid, setGrid] = useState(aStarService.getGrid());
+  const [grid, setGrid] = useState(aStarService.getDetailedGrid());
   const { action, handleClick, updateAction } = useControlPanel();
 
   const handleNodeClick = async (index: number) => {
     await handleClick(index);
-    setGrid(aStarService.getGrid());
+    setGrid(aStarService.getDetailedGrid());
   };
 
   const handleRun = async (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
@@ -65,7 +65,7 @@ export default function App() {
     (async () => {
       await aStarService.initAlgorithm();
       aStarService.setTarget(8);
-      setGrid(aStarService.getGrid());
+      setGrid(aStarService.getDetailedGrid());
     })();
   }, []);
 

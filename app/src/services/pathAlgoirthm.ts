@@ -5,6 +5,8 @@ export enum ElementStatus {
   PROCESSED = "processed",
   OBSTACLE = "obstacle",
   PATH = "path",
+  START = "start",
+  TARGET = "target",
 }
 
 export abstract class PathAlgorithm {
@@ -53,7 +55,6 @@ export abstract class PathAlgorithm {
    */
   public async resetGrid(): Promise<void> {
     this._grid = Array(this._xSize * this._ySize).fill(ElementStatus.UNKNOWN);
-    this._grid[this._start] = ElementStatus.SEEN;
   }
 
   /**
@@ -155,5 +156,13 @@ export abstract class PathAlgorithm {
 
   public setStart(index: number) {
     this._start = index;
+  }
+
+  public getDetailedGrid() {
+    let copy = this.getGrid().slice();
+    copy[this.getTarget()] = ElementStatus.TARGET;
+    copy[this.getStart()] = ElementStatus.START;
+    const response: readonly ElementStatus[] = copy;
+    return response;
   }
 }

@@ -34,8 +34,6 @@ export class AStarService extends PathAlgorithm {
     this._distancesEnd = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
     this._distancesStart = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
     this._parents = Array(this.getXSize() * this.getYSize()).fill(Number.NaN);
-
-    this._distancesStart[this.getStart()] = 0;
   }
 
   /**
@@ -79,13 +77,13 @@ export class AStarService extends PathAlgorithm {
   }> {
     // Reseting...
     let success: boolean = true;
-    this._states.push(this.getGrid());
+    this.takeGridSnapshot();
 
     let minElement = await this.getMinimumElement();
 
     while (minElement !== null) {
       this.setGridElement(ElementStatus.PROCESSING, minElement);
-      this._states.push(this.getGrid());
+      this.takeGridSnapshot();
       for (let neighbourIndex of await this.getNeighbours(minElement)) {
         let neighbourDistance: number = await this.getDistanceBetweenElements(
           minElement,
@@ -110,10 +108,10 @@ export class AStarService extends PathAlgorithm {
           this._parents[neighbourIndex] = minElement;
         }
 
-        this._states.push(this.getGrid());
+        this.takeGridSnapshot();
       }
       this.setGridElement(ElementStatus.PROCESSED, minElement);
-      this._states.push(this.getGrid());
+      this.takeGridSnapshot();
 
       // If we reached the target we stop the loop
       if (minElement === this.getTarget()) break;
@@ -128,15 +126,19 @@ export class AStarService extends PathAlgorithm {
         if (currElement) this.setGridElement(ElementStatus.PATH, currElement);
         currElement = nextElement;
         if (nextElement) nextElement = this._parents[nextElement];
-        this._states.push(this.getGrid());
+        this.takeGridSnapshot();
       }
 
       this.setGridElement(ElementStatus.PATH, currElement);
-      this._states.push(this.getGrid());
+      this.takeGridSnapshot();
     } else {
       success = false;
     }
 
     return { states: this._states, success };
+  }
+
+  private takeGridSnapshot() {
+    this._states.push(this.getDetailedGrid());
   }
 }

@@ -30,10 +30,18 @@ export const Node = styled.div<Props>`
   }
 
   &.obstacle {
-    background-color: black;
+    background-color: #898989;
   }
 
   &.path {
     background-color: red;
+  }
+
+  &.target {
+    background-color: #ff6c6c;
+  }
+
+  &.start {
+    background-color: #b9e2a0;
   }
 `;
