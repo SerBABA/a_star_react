@@ -26,14 +26,14 @@ export class AStarService extends PathAlgorithm {
   /**
    * Contains all parents of each element
    */
-  private _parents: number[] = Array(this.getXSize() * this.getYSize()).fill(Number.NaN);
+  private _parents: number[] = Array(this.getXSize() * this.getYSize()).fill(null);
 
   public async initAlgorithm(): Promise<void> {
     this._states = [];
     this.resetGrid();
     this._distancesEnd = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
     this._distancesStart = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
-    this._parents = Array(this.getXSize() * this.getYSize()).fill(Number.NaN);
+    this._parents = Array(this.getXSize() * this.getYSize()).fill(null);
   }
 
   /**
@@ -77,11 +77,18 @@ export class AStarService extends PathAlgorithm {
   }> {
     // Reseting...
     let success: boolean = true;
+    const startTargetOverlap: boolean = this.getStart() !== this.getTarget();
+    await this.initAlgorithm();
+
+    // Set the start index with default values
+    this.setGridElement(ElementStatus.SEEN, this.getStart());
+    this._distancesStart[this.getStart()] = 0;
+
     this.takeGridSnapshot();
 
     let minElement = await this.getMinimumElement();
 
-    while (minElement !== null) {
+    while (minElement !== null && startTargetOverlap) {
       this.setGridElement(ElementStatus.PROCESSING, minElement);
       this.takeGridSnapshot();
       for (let neighbourIndex of await this.getNeighbours(minElement)) {
@@ -118,11 +125,17 @@ export class AStarService extends PathAlgorithm {
       minElement = await this.getMinimumElement();
     }
 
+    await this.recordPath(minElement);
+
+    return { states: this._states, success };
+  }
+
+  private async recordPath(minElement: number | null): Promise<boolean> {
     if (minElement !== null) {
       let currElement = this.getTarget();
       let nextElement = this._parents[this.getTarget()];
 
-      while (nextElement !== currElement) {
+      while (nextElement !== currElement && this._parents[currElement] !== null) {
         if (currElement) this.setGridElement(ElementStatus.PATH, currElement);
         currElement = nextElement;
         if (nextElement) nextElement = this._parents[nextElement];
@@ -131,14 +144,12 @@ export class AStarService extends PathAlgorithm {
 
       this.setGridElement(ElementStatus.PATH, currElement);
       this.takeGridSnapshot();
-    } else {
-      success = false;
+      return true;
     }
-
-    return { states: this._states, success };
+    return false;
   }
 
   private takeGridSnapshot() {
-    this._states.push(this.getDetailedGrid());
+    this._states.push(this.getGrid());
   }
 }

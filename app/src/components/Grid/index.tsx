@@ -7,15 +7,28 @@ interface Props {
   xSize: number;
   ySize: number;
   grid: readonly ElementStatus[];
+  targetIndex: number;
+  startIndex: number;
   handleNodeClick: (index: number) => void;
 }
 
-export default function Grid({ xSize, ySize, grid, handleNodeClick }: Props) {
+export default function Grid(props: Props) {
+  const getStatusClass = (val: ElementStatus, index: number) => {
+    if (index === props.startIndex) return "start";
+    if (index === props.targetIndex) return "target";
+    return val;
+  };
+
   return (
     <>
-      <StyledGrid xSize={xSize} ySize={ySize}>
-        {grid.map((val, index) => (
-          <Node status={val} value={index} key={index} handleNodeClick={handleNodeClick} />
+      <StyledGrid xSize={props.xSize} ySize={props.ySize}>
+        {props.grid.map((val, index) => (
+          <Node
+            status={getStatusClass(val, index)}
+            value={index}
+            key={index}
+            handleNodeClick={props.handleNodeClick}
+          />
         ))}
       </StyledGrid>
     </>

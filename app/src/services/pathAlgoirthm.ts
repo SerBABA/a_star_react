@@ -5,8 +5,6 @@ export enum ElementStatus {
   PROCESSED = "processed",
   OBSTACLE = "obstacle",
   PATH = "path",
-  START = "start",
-  TARGET = "target",
 }
 
 export abstract class PathAlgorithm {
@@ -54,7 +52,13 @@ export abstract class PathAlgorithm {
    * Resets all the grid values to UNKNOWN type.
    */
   public async resetGrid(): Promise<void> {
-    this._grid = Array(this._xSize * this._ySize).fill(ElementStatus.UNKNOWN);
+    if (this._grid.length < this._xSize * this._ySize) {
+      this._grid = Array(this.getXSize() * this.getYSize()).fill(ElementStatus.UNKNOWN);
+    }
+
+    this._grid = this._grid.map((val) =>
+      val === ElementStatus.OBSTACLE ? ElementStatus.OBSTACLE : ElementStatus.UNKNOWN
+    );
   }
 
   /**
@@ -120,8 +124,9 @@ export abstract class PathAlgorithm {
    * @returns the distance between the from and to elements.
    */
   public async getDistanceBetweenElements(from: number, to: number): Promise<number> {
-    const xDis = Math.abs(from - to) % this._xSize;
-    const yDis = Math.abs(Math.floor(from / this._xSize) - Math.floor(to / this._xSize));
+    const xDis = Math.abs((from % this._xSize) - (to % this._xSize));
+    const yDis = Math.abs(from - (from % this._xSize) - (to - (to % this._xSize))) / this._xSize;
+
     return Math.sqrt(xDis ** 2 + yDis ** 2);
   }
 
@@ -156,13 +161,5 @@ export abstract class PathAlgorithm {
 
   public setStart(index: number) {
     this._start = index;
-  }
-
-  public getDetailedGrid() {
-    let copy = this.getGrid().slice();
-    copy[this.getTarget()] = ElementStatus.TARGET;
-    copy[this.getStart()] = ElementStatus.START;
-    const response: readonly ElementStatus[] = copy;
-    return response;
   }
 }

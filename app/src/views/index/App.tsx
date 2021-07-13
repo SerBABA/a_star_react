@@ -33,7 +33,7 @@ const useControlPanel = () => {
         aStarService.setTarget(index);
         break;
       default:
-        console.log("How did you do this?");
+        alert("How did you do this?");
     }
   };
 
@@ -42,12 +42,12 @@ const useControlPanel = () => {
 
 export default function App() {
   aStarService.setGridSize(X_SIZE, Y_SIZE);
-  const [grid, setGrid] = useState(aStarService.getDetailedGrid());
+  const [grid, setGrid] = useState(aStarService.getGrid());
   const { action, handleClick, updateAction } = useControlPanel();
 
   const handleNodeClick = async (index: number) => {
     await handleClick(index);
-    setGrid(aStarService.getDetailedGrid());
+    setGrid(aStarService.getGrid());
   };
 
   const handleRun = async (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
@@ -65,14 +65,21 @@ export default function App() {
     (async () => {
       await aStarService.initAlgorithm();
       aStarService.setTarget(8);
-      setGrid(aStarService.getDetailedGrid());
+      setGrid(aStarService.getGrid());
     })();
   }, []);
 
   return (
     <PageWrapper>
       <GridWrapper>
-        <Grid xSize={X_SIZE} ySize={Y_SIZE} grid={grid} handleNodeClick={handleNodeClick} />
+        <Grid
+          xSize={X_SIZE}
+          ySize={Y_SIZE}
+          startIndex={aStarService.getStart()}
+          targetIndex={aStarService.getTarget()}
+          grid={grid}
+          handleNodeClick={handleNodeClick}
+        />
       </GridWrapper>
       <Controls value={action} setValue={updateAction} />
       <Button onClick={(e) => handleRun(e)}>RUN</Button>

@@ -4,7 +4,7 @@ import { ElementStatus } from "../../services/pathAlgoirthm";
 import { Node } from "./Node";
 
 interface Props {
-  status: ElementStatus;
+  status: ElementStatus | string;
   value: number;
   handleNodeClick: (index: number) => void;
 }
