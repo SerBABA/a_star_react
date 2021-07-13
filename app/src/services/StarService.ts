@@ -1,5 +1,7 @@
 import { ElementStatus, PathAlgorithm } from "./pathAlgoirthm";
 
+const WEIGHT_BIAS = 1.5;
+
 /**
  * Performs the A* search algorithm
  */
@@ -7,19 +9,19 @@ export class AStarService extends PathAlgorithm {
   /**
    * Stores all the states, which store the "frames" in the algorithm steps
    */
-  private _states: (readonly ElementStatus[])[] = [];
+  private _history: (readonly ElementStatus[])[] = [];
 
   /**
    * Contains the (global) distances for each element from the target element.
    */
-  private _distancesEnd: number[] = Array(this.getXSize() * this.getYSize()).fill(
+  private _heuristic: number[] = Array(this.getXSize() * this.getYSize()).fill(
     Number.POSITIVE_INFINITY
   );
 
   /**
    * Contains all the distances from the start element (known).
    */
-  private _distancesStart: number[] = Array(this.getXSize() * this.getYSize()).fill(
+  private _distance: number[] = Array(this.getXSize() * this.getYSize()).fill(
     Number.POSITIVE_INFINITY
   );
 
@@ -29,10 +31,10 @@ export class AStarService extends PathAlgorithm {
   private _parents: number[] = Array(this.getXSize() * this.getYSize()).fill(null);
 
   public async initAlgorithm(): Promise<void> {
-    this._states = [];
+    this._history = [];
     this.resetGrid();
-    this._distancesEnd = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
-    this._distancesStart = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
+    this._heuristic = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
+    this._distance = Array(this.getXSize() * this.getYSize()).fill(Number.POSITIVE_INFINITY);
     this._parents = Array(this.getXSize() * this.getYSize()).fill(null);
   }
 
@@ -42,13 +44,13 @@ export class AStarService extends PathAlgorithm {
    * @param index The element's index
    * @returns the weight value
    */
-  public async getElementEndDistance(index: number): Promise<number> {
+  public async getHeuristicWeight(index: number): Promise<number> {
     // If the value is not set we lazily load it
-    if (this._distancesEnd[index] === Number.POSITIVE_INFINITY) {
-      this._distancesEnd[index] = await this.getDistanceBetweenElements(index, this.getTarget());
+    if (this._heuristic[index] === Number.POSITIVE_INFINITY) {
+      this._heuristic[index] = await this.getDistanceBetweenElements(index, this.getTarget());
     }
 
-    return this._distancesEnd[index];
+    return this._heuristic[index] * WEIGHT_BIAS;
   }
 
   /**
@@ -61,77 +63,113 @@ export class AStarService extends PathAlgorithm {
     let minIndex: number | null = null;
 
     for (let i = 0; i < this.getGrid().length; i++) {
-      let currentDistance = (await this.getElementEndDistance(i)) + this._distancesStart[i];
-      if (currentDistance < minDistance && this.getGrid()[i] === ElementStatus.SEEN) {
+      let currentDistance = (await this.getHeuristicWeight(i)) + this._distance[i];
+      if (currentDistance < minDistance && this.getGridElement(i) === ElementStatus.SEEN) {
         minDistance = currentDistance;
         minIndex = i;
       }
+      console.log(
+        `minIndex: ${minIndex},:${minDistance}, currIndex: ${i}, ${currentDistance}, ${this.getGridElement(
+          i
+        )}`
+      );
     }
-
     return minIndex;
   }
 
-  public async runAlgorithm(): Promise<{
-    states: (readonly ElementStatus[])[];
-    success: boolean;
-  }> {
-    // Reseting...
-    let success: boolean = true;
-    const startTargetOverlap: boolean = this.getStart() !== this.getTarget();
+  /**
+   * Checks the current state to test if the algorithm has reached its goal or cannot proceed any further.
+   *
+   * @returns True if the algorithm has tried all at can or reached the target. Otherwise false.
+   */
+  private async isAlgorithmComplete(): Promise<boolean> {
+    const alreadyThere: boolean = this.getStart() === this.getTarget();
+    const targetStatus: ElementStatus = this.getGridElement(this.getTarget());
+    const arrived: boolean = targetStatus === ElementStatus.PROCESSED;
+    return alreadyThere || arrived;
+  }
+
+  /**
+   * Get the current known weight of an element.
+   *
+   * @param index Index of the element we want it's weight
+   * @returns
+   */
+  private async getElementWeight(index: number) {
+    return (await this.getHeuristicWeight(index)) + this._distance[index];
+  }
+
+  /**
+   * Given the detour route through a detour element
+   *
+   * @param index Index of the element we want to get's it detour route weight
+   * @param detour Detour index of the element we detouring through
+   * @returns Weight of the detour route
+   */
+  private async getDetourWeight(index: number, detour: number) {
+    const neighDistance: number = await this.getDistanceBetweenElements(detour, index);
+    return this._distance[detour] + neighDistance + (await this.getHeuristicWeight(index));
+  }
+
+  public async runAlgorithm() {
     await this.initAlgorithm();
-
-    // Set the start index with default values
-    this.setGridElement(ElementStatus.SEEN, this.getStart());
-    this._distancesStart[this.getStart()] = 0;
-
+    this.setGridElement(ElementStatus.SEEN, this.getStart()); // Remoeved this section from the initAlgorithm() to prevent artifacts
+    this._distance[this.getStart()] = 0; //                      between resets.
     this.takeGridSnapshot();
 
     let minElement = await this.getMinimumElement();
 
-    while (minElement !== null && startTargetOverlap) {
+    // Removed minElement check from the algorithmComplete() because of Typescript saying that it will allow null values...
+    while (!(await this.isAlgorithmComplete()) && minElement !== null) {
+      // Inform that we are current processing the current minimum element
       this.setGridElement(ElementStatus.PROCESSING, minElement);
       this.takeGridSnapshot();
+
+      // Test all the neighbours to see if the need updating
       for (let neighbourIndex of await this.getNeighbours(minElement)) {
-        let neighbourDistance: number = await this.getDistanceBetweenElements(
-          minElement,
-          neighbourIndex
-        );
+        // If we haven't seen this element before we mark it as SEEN
+        if (this.getGridElement(neighbourIndex) === ElementStatus.UNKNOWN) {
+          this.setGridElement(ElementStatus.SEEN, neighbourIndex);
+        }
 
-        // New route option
-        let newDistance =
-          this._distancesStart[minElement] +
-          neighbourDistance +
-          (await this.getElementEndDistance(neighbourIndex));
+        const neighbourDistance = await this.getDistanceBetweenElements(minElement, neighbourIndex);
 
-        // Current known shortest route
-        let currDistance =
-          (await this.getElementEndDistance(neighbourIndex)) + this._distancesStart[neighbourIndex];
+        // Get the new optional route for a neighbour
+        const detourWeight = await this.getDetourWeight(neighbourIndex, minElement);
 
-        // Update the route
-        if (newDistance < currDistance) {
-          this._distancesStart[neighbourIndex] =
-            this._distancesStart[minElement] + neighbourDistance;
+        // Get the current shortest distance known for the neighbour
+        const currentWeight = await this.getElementWeight(neighbourIndex);
 
+        // Update the neighbour's route if the new route offered is shorter
+        if (detourWeight < currentWeight) {
+          this._distance[neighbourIndex] = this._distance[minElement] + neighbourDistance;
           this._parents[neighbourIndex] = minElement;
         }
 
         this.takeGridSnapshot();
       }
+
       this.setGridElement(ElementStatus.PROCESSED, minElement);
       this.takeGridSnapshot();
 
-      // If we reached the target we stop the loop
-      if (minElement === this.getTarget()) break;
+      // // If we processed the target element we stop the loop. Otherwise we continue
       minElement = await this.getMinimumElement();
     }
 
-    await this.recordPath(minElement);
+    // Record the final path
+    const success = await this.recordPath(minElement);
 
-    return { states: this._states, success };
+    return { states: this._history, success };
   }
 
-  private async recordPath(minElement: number | null): Promise<boolean> {
-    if (minElement !== null) {
+  /**
+   * Given an element it will try and trace back a path through the _parents array to the start element.
+   *
+   * @param sourceElement Defines the start point of the path algorithm
+   * @returns true if it managed to find a path to the start element otherwise false.
+   */
+  private async recordPath(sourceElement: number | null): Promise<boolean> {
+    if (sourceElement !== null) {
       let currElement = this.getTarget();
       let nextElement = this._parents[this.getTarget()];
 
@@ -144,12 +182,16 @@ export class AStarService extends PathAlgorithm {
 
       this.setGridElement(ElementStatus.PATH, currElement);
       this.takeGridSnapshot();
-      return true;
+
+      return currElement === this.getStart();
     }
     return false;
   }
 
+  /**
+   * Stores the current grid states into the history.
+   */
   private takeGridSnapshot() {
-    this._states.push(this.getGrid());
+    this._history.push(this.getGrid());
   }
 }

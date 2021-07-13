@@ -18,6 +18,7 @@ export default function index({ status, value, handleNodeClick }: Props) {
           event.preventDefault();
           handleNodeClick(value);
         }}
+        onPointerOver={(e) => console.log(e)}
       >
         {value}
       </Node>

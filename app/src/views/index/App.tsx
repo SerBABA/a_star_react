@@ -1,13 +1,13 @@
 import React, { useEffect } from "react";
 import { useState } from "react";
-import { PageWrapper, GridWrapper, Button } from "./App.elements";
+import { PageWrapper, GridWrapper } from "./App.elements";
 import Grid from "../../components/Grid";
 import { ElementStatus, PathAlgorithm } from "../../services/pathAlgoirthm";
 import { AStarService } from "../../services/StarService";
 import Controls, { SetActionEnum } from "./../../components/Controls";
 
-const X_SIZE = 5;
-const Y_SIZE = 5;
+const X_SIZE = 10;
+const Y_SIZE = 10;
 const aStarService: PathAlgorithm = new AStarService();
 
 const useControlPanel = () => {
@@ -20,7 +20,7 @@ const useControlPanel = () => {
   const handleClick = async (index: number) => {
     switch (action) {
       case SetActionEnum.obstacle:
-        if ((await aStarService.getGridElement(index)) !== ElementStatus.OBSTACLE) {
+        if (aStarService.getGridElement(index) !== ElementStatus.OBSTACLE) {
           aStarService.setGridElement(ElementStatus.OBSTACLE, index);
         } else {
           aStarService.setGridElement(ElementStatus.UNKNOWN, index);
@@ -50,9 +50,7 @@ export default function App() {
     setGrid(aStarService.getGrid());
   };
 
-  const handleRun = async (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-    event.preventDefault();
-
+  const handleRun = async () => {
     const res = await aStarService.runAlgorithm();
     for (let i = 0; i < res.states.length; i++) {
       setTimeout(() => {
@@ -81,8 +79,7 @@ export default function App() {
           handleNodeClick={handleNodeClick}
         />
       </GridWrapper>
-      <Controls value={action} setValue={updateAction} />
-      <Button onClick={(e) => handleRun(e)}>RUN</Button>
+      <Controls value={action} setValue={updateAction} handleRun={handleRun} />
     </PageWrapper>
   );
 }

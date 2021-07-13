@@ -72,12 +72,12 @@ export abstract class PathAlgorithm {
   }
 
   /**
-   * Returns the grid property asynchrounously
+   * Returns the grid property
    *
    * @param index index of the element.
    * @returns grid property
    */
-  public async getGridElement(index: number): Promise<ElementStatus> {
+  public getGridElement(index: number): ElementStatus {
     return this._grid[index];
   }
 
@@ -103,17 +103,12 @@ export abstract class PathAlgorithm {
     // Filter any neighbours that are out of the y-axis bounds
     neighbours = neighbours.filter((val) => val >= 0 && val <= this._xSize * this._ySize);
 
-    // All new neighbours get updated
-    for (let i of neighbours) {
-      if ((await this.getGridElement(i)) === ElementStatus.UNKNOWN) {
-        this.setGridElement(ElementStatus.SEEN, i);
-      }
-    }
-
-    const res = neighbours.filter(
-      async (i) => (await this.getGridElement(i)) === ElementStatus.SEEN
+    // Filter only for seen and unknown neighbours
+    return neighbours.filter(
+      (val) =>
+        this.getGridElement(val) === ElementStatus.SEEN ||
+        this.getGridElement(val) === ElementStatus.UNKNOWN
     );
-    return res;
   }
 
   /**

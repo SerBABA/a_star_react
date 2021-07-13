@@ -6,8 +6,8 @@ export const PageWrapper = styled.main`
 `;
 
 export const GridWrapper = styled.div`
-  width: 50vw;
   overflow: auto;
+  padding: 15%;
+  height: 50vh;
+  aspect-ratio: 1 / 1;
 `;
-
-export const Button = styled.button``;

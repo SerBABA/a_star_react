@@ -1,5 +1,5 @@
 import React from "react";
-import { Controls, ControlsWrapper } from "./Controls";
+import { Controls, ControlsWrapper, Button } from "./Controls";
 
 export enum SetActionEnum {
   obstacle = "obstacle",
@@ -10,9 +10,10 @@ export enum SetActionEnum {
 interface Props {
   value: string;
   setValue: (value: string) => void;
+  handleRun: () => Promise<void>;
 }
 
-export default function index(props: Props) {
+export default function Index(props: Props) {
   return (
     <>
       <ControlsWrapper>
@@ -24,6 +25,15 @@ export default function index(props: Props) {
           <option value={SetActionEnum.start}>Set Start</option>
           <option value={SetActionEnum.target}>Set Target</option>
         </Controls>
+
+        <Button
+          onClick={(e) => {
+            e.preventDefault();
+            props.handleRun();
+          }}
+        >
+          RUN
+        </Button>
       </ControlsWrapper>
     </>
   );
