@@ -2,7 +2,12 @@
 
 A simple React based visualizer for the A* algorithm on a grid.
 
-1. Simply clone this reposity
-2. cd to the /app folder 
-3. run `npm install` in the console, and wait for all the modules to be installed (somtimes you might need to run the command with permissions.
-4. run `npm start` in the console.
+### Steps to run
+1. clone this repository
+2. navigate to `/app` directory 
+3. run `npm install`.
+4. run `npm run start`.
+
+### General Todos:
+- apply styling from figma (seen in the next bullet point)
+- ![image](https://user-images.githubusercontent.com/32250073/133344842-72721a47-1047-4417-ab7a-30e0435238c3.png)
